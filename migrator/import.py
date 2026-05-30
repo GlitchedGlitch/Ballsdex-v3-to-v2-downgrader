@@ -126,12 +126,12 @@ def read_bz2(path: str):
 
 
 async def load(message):
-    lines = read_bz2("migration.txt.bz2")
+    lines = read_bz2("/tmp/migration.txt.bz2")
     section = ""
     data = {}
 
-    skipped_log = open("skipped_records.log", "w", encoding="utf-8")
-    skipped_log.write("=== BD v3→v2 DOWNGRADER SKIPPED RECORDS ===\n")
+    skipped_log = open("/tmp/skipped_records.log", "w", encoding="utf-8")
+    skipped_log.write("=== BD v3 -> v2 DOWNGRADER SKIPPED RECORDS ===\n")
     skipped_log.write(f"Generated: {datetime.now()}\n\n")
 
     output.append(f"- Reading migration file with {len(lines):,} lines...")
@@ -475,7 +475,7 @@ async def load(message):
 
     # Send log to Discord
     try:
-        log_path = "skipped_records.log"
+        log_path = "/tmp/skipped_records.log"
         if os.path.exists(log_path) and os.path.getsize(log_path) > 100:
             await ctx.send(file=discord.File(log_path))  # type: ignore # noqa: F821
     except Exception:
@@ -484,7 +484,7 @@ async def load(message):
     # Count and report skipped
     skipped_b = skipped_p = skipped_bi = 0
     try:
-        with open("skipped_records.log", encoding="utf-8") as f:
+        with open("/tmp/skipped_records.log", encoding="utf-8") as f:
             for line in f:
                 if "Ball " in line and "SKIPPED" in line:
                     skipped_b += 1
@@ -496,7 +496,7 @@ async def load(message):
         pass
 
     if skipped_b or skipped_p or skipped_bi:
-        msg = "**Skipped Records:**\n"
+        msg = "⚠️ **Skipped Records:**\n"
         if skipped_b:
             msg += f"- **{skipped_b} Balls**: Null/invalid required fields\n"
         if skipped_p:
@@ -550,8 +550,8 @@ async def clear_all_data():
 
 
 async def main():
-    if not os.path.isfile("migration.txt.bz2"):
-        await ctx.send("`migration.txt.bz2` not found. Run export.py on your v3 bot first.")  # type: ignore # noqa: F821
+    if not os.path.isfile("/tmp/migration.txt.bz2"):
+        await ctx.send("`/tmp/migration.txt.bz2` not found. Run export.py on your v3 bot first and add the generated file into /code/tmp/.")  # type: ignore # noqa: F821
         return
 
     try:
