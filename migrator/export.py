@@ -5,7 +5,7 @@ import traceback
 from typing import Any
 
 import discord
-from ballsdex.core.models import (
+from bd_models.models import (
     Ball,
     BallInstance,
     BlacklistedGuild,
@@ -21,11 +21,6 @@ from ballsdex.core.models import (
 )
 
 __version__ = "1.0.0"
-
-# V3 -> V2 field mappings
-# V3 uses Tortoise ORM, V2 uses Django ORM
-# Models are largely the same but V3 added: deleted, extra_data, translations,
-# Block, BlacklistHistory, mention_policy, friend_policy, trade_cooldown_policy
 
 MIGRATIONS: dict[str, dict[str, Any]] = {
     "R": {
@@ -259,7 +254,7 @@ async def process(entry: str, migration: dict) -> str:
 async def migrate(message, filename: str) -> str | None:
     with bz2.open(f"{filename}.bz2", "wt", encoding="utf-8") as f:
         content = [
-            f"// Generated with 'BD v3 -> v2 Downgrader' v{__version__}\n"
+            f"// Generated with 'BD v3→v2 Downgrader' v{__version__}\n"
             "// Run import.py on your BallsDex v2 bot to import this data.\n\n"
         ]
         error_occurred = False
