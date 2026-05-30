@@ -22,11 +22,6 @@ from bd_models.models import (
 
 __version__ = "1.0.0"
 
-# V3 -> V2 field mappings
-# V3 uses Tortoise ORM, V2 uses Django ORM
-# Models are largely the same but V3 added: deleted, extra_data, translations,
-# Block, BlacklistHistory, mention_policy, friend_policy, trade_cooldown_policy
-
 MIGRATIONS: dict[str, dict[str, Any]] = {
     "R": {
         "model": Regime,
@@ -218,13 +213,12 @@ async def process(entry: str, migration: dict) -> str:
         values.update(migration["defaults"].keys())
     values = sorted(values, key=lambda x: (x != "id", x))
 
-    # Use all_objects manager for BallInstance to include deleted ones
     if migration["model"] == BallInstance:
-        qs = BallInstance.all_objects.all().order_by("id").values_list(*values)
+        rows = [x async for x in BallInstance.all_objects.order_by("id").values_list(*values)]
     else:
-        qs = migration["model"].all().order_by("id").values_list(*values)
+        rows = [x async for x in migration["model"].objects.order_by("id").values_list(*values)]
 
-    async for row in qs:
+    for row in rows:
         model_dict = dict(zip(values, row))
         fields = []
 
@@ -250,7 +244,7 @@ async def process(entry: str, migration: dict) -> str:
 
         content.append("╵".join(fields))
 
-    count = await migration["model"].all().count() if migration["model"] != BallInstance else await BallInstance.all_objects.all().count()
+    count = await BallInstance.all_objects.acount() if migration["model"] == BallInstance else await migration["model"].objects.acount()
     output.append(f"- Exported **{count:,}** {migration['process']} objects.")
 
     return "\n".join(content)
