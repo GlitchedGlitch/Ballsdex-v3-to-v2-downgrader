@@ -15,3 +15,5 @@ req = urllib.request.urlopen("https://raw.githubusercontent.com/GlitchedGlitch/B
 await ctx.invoke(bot.get_command("eval"), body=base64.b64decode(base64.b64encode(req.read())).decode()) 
 ```
 After that, move all your arts into the media folder, reload your bot cache and thats it
+
+Credits for Cayla for original migrator style (CarFigures to Ballsdex migrator)
