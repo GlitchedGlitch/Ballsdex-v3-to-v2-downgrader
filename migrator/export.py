@@ -22,6 +22,11 @@ from bd_models.models import (
 
 __version__ = "1.0.0"
 
+# V3 -> V2 field mappings
+# V3 uses Tortoise ORM, V2 uses Django ORM
+# Models are largely the same but V3 added: deleted, extra_data, translations,
+# Block, BlacklistHistory, mention_policy, friend_policy, trade_cooldown_policy
+
 MIGRATIONS: dict[str, dict[str, Any]] = {
     "R": {
         "model": Regime,
@@ -282,7 +287,7 @@ async def main():
     message = await ctx.send(embed=reload_embed())  # type: ignore # noqa: F821
     start_time = time.time()
 
-    path = await migrate(message, "migration.txt")
+    path = await migrate(message, "/tmp/migration.txt")
 
     if path is None:
         await message.edit(embed=reload_embed(start_time, status="CANCELED"))
