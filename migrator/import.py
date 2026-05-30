@@ -97,7 +97,7 @@ output = []
 
 def reload_embed(start_time: float | None = None, status="RUNNING"):
     embed = discord.Embed(
-        title="BD v3→v2 Downgrader — Import",
+        title="BD v3 -> v2 Downgrader — Import",
         description=f"Status: **{status}**",
     )
     if status == "RUNNING":
@@ -496,7 +496,7 @@ async def load(message):
         pass
 
     if skipped_b or skipped_p or skipped_bi:
-        msg = "⚠️ **Skipped Records:**\n"
+        msg = "**Skipped Records:**\n"
         if skipped_b:
             msg += f"- **{skipped_b} Balls**: Null/invalid required fields\n"
         if skipped_p:
@@ -551,7 +551,7 @@ async def clear_all_data():
 
 async def main():
     if not os.path.isfile("migration.txt.bz2"):
-        await ctx.send("❌ `migration.txt.bz2` not found. Run export.py on your v3 bot first.")  # type: ignore # noqa: F821
+        await ctx.send("`migration.txt.bz2` not found. Run export.py on your v3 bot first.")  # type: ignore # noqa: F821
         return
 
     try:
