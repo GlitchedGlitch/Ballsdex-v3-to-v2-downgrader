@@ -1,0 +1,310 @@
+import bz2
+import os
+import time
+import traceback
+from typing import Any
+
+import discord
+from ballsdex.core.models import (
+    Ball,
+    BallInstance,
+    BlacklistedGuild,
+    BlacklistedID,
+    Economy,
+    Friendship,
+    GuildConfig,
+    Player,
+    Regime,
+    Special,
+    Trade,
+    TradeObject,
+)
+
+__version__ = "1.0.0"
+
+# V3 -> V2 field mappings
+# V3 uses Tortoise ORM, V2 uses Django ORM
+# Models are largely the same but V3 added: deleted, extra_data, translations,
+# Block, BlacklistHistory, mention_policy, friend_policy, trade_cooldown_policy
+
+MIGRATIONS: dict[str, dict[str, Any]] = {
+    "R": {
+        "model": Regime,
+        "process": "Regime",
+        "values": ["name", "background"],
+    },
+    "E": {
+        "model": Economy,
+        "process": "Economy",
+        "values": ["name", "icon"],
+    },
+    "S": {
+        "model": Special,
+        "process": "Special",
+        "values": [
+            "name",
+            "catch_phrase",
+            "start_date",
+            "end_date",
+            "rarity",
+            "background",
+            "emoji",
+            "tradeable",
+            "hidden",
+            "credits",
+        ],
+        "defaults": {
+            "catch_phrase": None,
+            "start_date": None,
+            "end_date": None,
+            "background": None,
+            "emoji": None,
+            "credits": None,
+        },
+    },
+    "B": {
+        "model": Ball,
+        "process": "Ball",
+        "values": [
+            "regime_id",
+            "economy_id",
+            "country",
+            "short_name",
+            "catch_names",
+            "translations",
+            "health",
+            "attack",
+            "rarity",
+            "enabled",
+            "tradeable",
+            "emoji_id",
+            "wild_card",
+            "collection_card",
+            "credits",
+            "capacity_name",
+            "capacity_description",
+        ],
+        "defaults": {
+            "economy_id": None,
+            "short_name": None,
+            "catch_names": None,
+            "translations": None,
+            "enabled": True,
+            "tradeable": True,
+        },
+    },
+    "P": {
+        "model": Player,
+        "process": "Player",
+        "values": ["discord_id", "donation_policy", "privacy_policy"],
+        "defaults": {
+            "donation_policy": 1,
+            "privacy_policy": 2,
+        },
+    },
+    "BI": {
+        "model": BallInstance,
+        "process": "BallInstance",
+        "values": [
+            "ball_id",
+            "player_id",
+            "catch_date",
+            "spawned_time",
+            "server_id",
+            "special_id",
+            "health_bonus",
+            "attack_bonus",
+            "trade_player_id",
+            "favorite",
+            "tradeable",
+        ],
+        "defaults": {
+            "spawned_time": None,
+            "server_id": None,
+            "special_id": None,
+            "trade_player_id": None,
+            "favorite": False,
+            "tradeable": True,
+        },
+    },
+    "GC": {
+        "model": GuildConfig,
+        "process": "GuildConfig",
+        "values": ["guild_id", "spawn_channel", "enabled"],
+        "defaults": {
+            "spawn_channel": None,
+            "enabled": True,
+        },
+    },
+    "F": {
+        "model": Friendship,
+        "process": "Friendship",
+        "values": ["player1_id", "player2_id", "since"],
+    },
+    "BU": {
+        "model": BlacklistedID,
+        "process": "BlacklistedID",
+        "values": ["discord_id", "reason", "date"],
+        "defaults": {"reason": None, "date": None},
+    },
+    "BG": {
+        "model": BlacklistedGuild,
+        "process": "BlacklistedGuild",
+        "values": ["discord_id", "reason", "date"],
+        "defaults": {"reason": None, "date": None},
+    },
+    "T": {
+        "model": Trade,
+        "process": "Trade",
+        "values": ["player1_id", "player2_id", "date"],
+    },
+    "TO": {
+        "model": TradeObject,
+        "process": "TradeObject",
+        "values": ["trade_id", "ballinstance_id", "player_id"],
+    },
+}
+
+output = []
+
+
+def reload_embed(start_time: float | None = None, file: str | None = None, status="RUNNING"):
+    embed = discord.Embed(
+        title="BD v3→v2 Downgrader — Export",
+        description=f"Status: **{status}**",
+    )
+    match status:
+        case "RUNNING":
+            embed.color = discord.Color.yellow()
+        case "FINISHED":
+            embed.color = discord.Color.green()
+        case "CANCELED":
+            embed.color = discord.Color.red()
+
+    if output:
+        embed.add_field(name="Output", value="\n".join(output[-20:]))
+
+    if file:
+        embed.add_field(
+            name="File",
+            value=f"Saved to `{file}` ({convert_size(os.path.getsize(file))})",
+            inline=False,
+        )
+
+    if start_time is not None:
+        embed.set_footer(text=f"Finished in {round(time.time() - start_time, 3)}s")
+
+    return embed
+
+
+def convert_size(b: int) -> str:
+    if b < 1024:
+        return f"{b} bytes"
+    if b < 1024**2:
+        return f"{b / 1024:.2f} KB"
+    if b < 1024**3:
+        return f"{b / 1024**2:.2f} MB"
+    return f"{b / 1024**3:.2f} GB"
+
+
+async def process(entry: str, migration: dict) -> str:
+    content = []
+    first_instance = True
+    has_defaults = "defaults" in migration
+    rename = migration.get("rename", {})
+
+    values = set(migration["values"] + ["id"])
+    if has_defaults:
+        values.update(migration["defaults"].keys())
+    values = sorted(values, key=lambda x: (x != "id", x))
+
+    # Use all_objects manager for BallInstance to include deleted ones
+    if migration["model"] == BallInstance:
+        qs = BallInstance.all_objects.all().order_by("id").values_list(*values)
+    else:
+        qs = migration["model"].all().order_by("id").values_list(*values)
+
+    async for row in qs:
+        model_dict = dict(zip(values, row))
+        fields = []
+
+        for key, value in model_dict.items():
+            if has_defaults and key in migration["defaults"] and value == migration["defaults"][key]:
+                fields.append("")
+                continue
+
+            value_string = str(value)
+
+            if value_string == "True":
+                value_string = "🬀"
+            elif value_string == "False":
+                value_string = "🬁"
+
+            fields.append(value_string.replace("\n", "🮈"))
+
+        if first_instance:
+            content.append(f":{entry}")
+            renamed_values = [rename.get(v, v) for v in values]
+            content.append(f"#fields:{'╵'.join(renamed_values)}")
+            first_instance = False
+
+        content.append("╵".join(fields))
+
+    count = await migration["model"].all().count() if migration["model"] != BallInstance else await BallInstance.all_objects.all().count()
+    output.append(f"- Exported **{count:,}** {migration['process']} objects.")
+
+    return "\n".join(content)
+
+
+async def migrate(message, filename: str) -> str | None:
+    with bz2.open(f"{filename}.bz2", "wt", encoding="utf-8") as f:
+        content = [
+            f"// Generated with 'BD v3→v2 Downgrader' v{__version__}\n"
+            "// Run import.py on your BallsDex v2 bot to import this data.\n\n"
+        ]
+        error_occurred = False
+
+        for key, migration in MIGRATIONS.items():
+            try:
+                field = await process(key, migration)
+            except Exception:
+                print(f"Error processing {key}:\n{traceback.format_exc()}")
+                error_occurred = True
+                break
+
+            content.append(field)
+            await message.edit(embed=reload_embed())
+
+        if error_occurred:
+            return
+
+        f.write("\n".join(content))
+
+    return f"{filename}.bz2"
+
+
+async def main():
+    message = await ctx.send(embed=reload_embed())  # type: ignore # noqa: F821
+    start_time = time.time()
+
+    path = await migrate(message, "migration.txt")
+
+    if path is None:
+        await message.edit(embed=reload_embed(start_time, status="CANCELED"))
+        return
+
+    await message.edit(embed=reload_embed(start_time, path, "FINISHED"))
+
+    try:
+        await ctx.send(  # type: ignore # noqa: F821
+            "📦 **Migration file — drag this into your BallsDex v2 bot folder:**",
+            file=discord.File(path),
+        )
+    except discord.HTTPException:
+        size = convert_size(os.path.getsize(path))
+        await ctx.send(  # type: ignore # noqa: F821
+            f"⚠️ File too large to upload ({size}). Copy `{path}` manually to your v2 bot folder."
+        )
+
+
+await main()  # type: ignore # noqa: F704
