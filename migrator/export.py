@@ -22,6 +22,11 @@ from bd_models.models import (
 
 __version__ = "1.0.0"
 
+# V3 -> V2 field mappings
+# V3 uses Tortoise ORM, V2 uses Django ORM
+# Models are largely the same but V3 added: deleted, extra_data, translations,
+# Block, BlacklistHistory, mention_policy, friend_policy, trade_cooldown_policy
+
 MIGRATIONS: dict[str, dict[str, Any]] = {
     "R": {
         "model": Regime,
@@ -208,10 +213,19 @@ async def process(entry: str, migration: dict) -> str:
     has_defaults = "defaults" in migration
     rename = migration.get("rename", {})
 
-    values = set(migration["values"] + ["id"])
+    # Build ordered values list — id first, then all others in definition order
+    # Using a list (not set) to preserve order and prevent column misalignment
+    seen = {"id"}
+    values = ["id"]
+    for v in migration["values"]:
+        if v not in seen:
+            seen.add(v)
+            values.append(v)
     if has_defaults:
-        values.update(migration["defaults"].keys())
-    values = sorted(values, key=lambda x: (x != "id", x))
+        for v in migration["defaults"].keys():
+            if v not in seen:
+                seen.add(v)
+                values.append(v)
 
     if migration["model"] == BallInstance:
         rows = [x async for x in BallInstance.all_objects.order_by("id").values_list(*values)]
@@ -253,7 +267,7 @@ async def process(entry: str, migration: dict) -> str:
 async def migrate(message, filename: str) -> str | None:
     with bz2.open(f"{filename}.bz2", "wt", encoding="utf-8") as f:
         content = [
-            f"// Generated with 'BD v3→v2 Downgrader' v{__version__}\n"
+            f"// Generated with 'BD v3 -> v2 Downgrader' v{__version__}\n"
             "// Run import.py on your BallsDex v2 bot to import this data.\n\n"
         ]
         error_occurred = False
