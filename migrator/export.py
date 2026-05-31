@@ -170,7 +170,7 @@ output = []
 
 def reload_embed(start_time: float | None = None, file: str | None = None, status="RUNNING"):
     embed = discord.Embed(
-        title="BD v3 -> v2 Downgrader — Export",
+        title="BD v3→v2 Downgrader — Export",
         description=f"Status: **{status}**",
     )
     match status:
@@ -232,7 +232,13 @@ async def process(entry: str, migration: dict) -> str:
     else:
         rows = [x async for x in migration["model"].objects.order_by("id").values_list(*values)]
 
+    if rows:
+        output.append(f"  [debug] First {entry} row: {len(rows[0])} cols, fields: {values[:5]}")
+        await message.edit(embed=reload_embed())
+
     for row in rows:
+        # Convert Django ImageFieldFile objects to strings
+        row = tuple(str(v) if hasattr(v, 'name') and hasattr(v, 'url') else v for v in row)
         model_dict = dict(zip(values, row))
         fields = []
 
@@ -267,7 +273,7 @@ async def process(entry: str, migration: dict) -> str:
 async def migrate(message, filename: str) -> str | None:
     with bz2.open(f"{filename}.bz2", "wt", encoding="utf-8") as f:
         content = [
-            f"// Generated with 'BD v3 -> v2 Downgrader' v{__version__}\n"
+            f"// Generated with 'BD v3→v2 Downgrader' v{__version__}\n"
             "// Run import.py on your BallsDex v2 bot to import this data.\n\n"
         ]
         error_occurred = False
@@ -305,13 +311,13 @@ async def main():
 
     try:
         await ctx.send(  # type: ignore # noqa: F821
-            "**Migration file — drag this into your BallsDex v2 bot folder:**",
+            "📦 **Migration file — drag this into your BallsDex v2 bot folder:**",
             file=discord.File(path),
         )
     except discord.HTTPException:
         size = convert_size(os.path.getsize(path))
         await ctx.send(  # type: ignore # noqa: F821
-            f"File too large to upload ({size}). Copy `{path}` manually to your v2 bot folder."
+            f"⚠️ File too large to upload ({size}). Copy `{path}` manually to your v2 bot folder."
         )
 
 
