@@ -97,7 +97,7 @@ output = []
 
 def reload_embed(start_time: float | None = None, status="RUNNING"):
     embed = discord.Embed(
-        title="BD v3 -> v2 Downgrader — Import",
+        title="BD v3→v2 Downgrader — Import",
         description=f"Status: **{status}**",
     )
     if status == "RUNNING":
@@ -126,12 +126,12 @@ def read_bz2(path: str):
 
 
 async def load(message):
-    lines = read_bz2("/tmp/migration.txt.bz2")
+    lines = read_bz2("/code/migration.txt.bz2")
     section = ""
     data = {}
 
-    skipped_log = open("/tmp/skipped_records.log", "w", encoding="utf-8")
-    skipped_log.write("=== BD v3 -> v2 DOWNGRADER SKIPPED RECORDS ===\n")
+    skipped_log = open("/code/skipped_records.log", "w", encoding="utf-8")
+    skipped_log.write("=== BD v3→v2 DOWNGRADER SKIPPED RECORDS ===\n")
     skipped_log.write(f"Generated: {datetime.now()}\n\n")
 
     output.append(f"- Reading migration file with {len(lines):,} lines...")
@@ -475,7 +475,7 @@ async def load(message):
 
     # Send log to Discord
     try:
-        log_path = "/tmp/skipped_records.log"
+        log_path = "/code/skipped_records.log"
         if os.path.exists(log_path) and os.path.getsize(log_path) > 100:
             await ctx.send(file=discord.File(log_path))  # type: ignore # noqa: F821
     except Exception:
@@ -484,7 +484,7 @@ async def load(message):
     # Count and report skipped
     skipped_b = skipped_p = skipped_bi = 0
     try:
-        with open("/tmp/skipped_records.log", encoding="utf-8") as f:
+        with open("/code/skipped_records.log", encoding="utf-8") as f:
             for line in f:
                 if "Ball " in line and "SKIPPED" in line:
                     skipped_b += 1
@@ -550,13 +550,13 @@ async def clear_all_data():
 
 
 async def main():
-    if not os.path.isfile("/migration.txt.bz2"):
-        await ctx.send("`/migration.txt.bz2` not found. Run export.py on your v3 bot first and add the generated file into /code/.")  # type: ignore # noqa: F821
+    if not os.path.isfile("/code/migration.txt.bz2"):
+        await ctx.send("`/code/migration.txt.bz2` not found. Run export.py on your v3 bot first.")  # type: ignore # noqa: F821
         return
 
     try:
         await ctx.send(  # type: ignore # noqa: F821
-            "**⚠️ WARNING**: All existing data on this v2 bot will be **CLEARED**.\n"
+            "**⚠️ WARNING**: All existing data will be **CLEARED**.\n"
             "Type `proceed` to continue or `cancel` to abort."
         )
         confirm = await bot.wait_for(  # type: ignore # noqa: F821
