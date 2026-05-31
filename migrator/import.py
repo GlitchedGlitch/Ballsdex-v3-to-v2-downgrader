@@ -550,8 +550,8 @@ async def clear_all_data():
 
 
 async def main():
-    if not os.path.isfile("/tmp/migration.txt.bz2"):
-        await ctx.send("`/tmp/migration.txt.bz2` not found. Run export.py on your v3 bot first and add the generated file into /code/tmp/.")  # type: ignore # noqa: F821
+    if not os.path.isfile("/migration.txt.bz2"):
+        await ctx.send("`/migration.txt.bz2` not found. Run export.py on your v3 bot first and add the generated file into /code/.")  # type: ignore # noqa: F821
         return
 
     try:
