@@ -232,22 +232,25 @@ async def process(entry: str, migration: dict) -> str:
     else:
         rows = [x async for x in migration["model"].objects.order_by("id").values_list(*values)]
 
-    if rows:
-        output.append(f"  [debug] First {entry} row: {len(rows[0])} cols, fields: {values[:5]}")
-        await message.edit(embed=reload_embed())
-
     for row in rows:
-        # Convert Django ImageFieldFile objects to strings
-        row = tuple(str(v) if hasattr(v, 'name') and hasattr(v, 'url') else v for v in row)
+        # Convert Django ImageFieldFile objects to their path string (or None if empty)
+        row = tuple(
+            (str(v) if str(v) else None) if hasattr(v, 'name') and hasattr(v, 'url') else v
+            for v in row
+        )
         model_dict = dict(zip(values, row))
         fields = []
 
         for key, value in model_dict.items():
-            if has_defaults and key in migration["defaults"] and value == migration["defaults"][key]:
-                fields.append("")
-                continue
+            if has_defaults and key in migration["defaults"]:
+                default = migration["defaults"][key]
+                # Treat empty string same as None for comparison
+                effective_value = None if value == "" else value
+                if effective_value == default:
+                    fields.append("")
+                    continue
 
-            value_string = str(value)
+            value_string = str(value) if value is not None else "None"
 
             if value_string == "True":
                 value_string = "🬀"
