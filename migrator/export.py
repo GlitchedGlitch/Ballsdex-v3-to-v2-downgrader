@@ -22,11 +22,6 @@ from bd_models.models import (
 
 __version__ = "1.0.0"
 
-# V3 -> V2 field mappings
-# V3 uses Tortoise ORM, V2 uses Django ORM
-# Models are largely the same but V3 added: deleted, extra_data, translations,
-# Block, BlacklistHistory, mention_policy, friend_policy, trade_cooldown_policy
-
 MIGRATIONS: dict[str, dict[str, Any]] = {
     "R": {
         "model": Regime,
@@ -170,7 +165,7 @@ output = []
 
 def reload_embed(start_time: float | None = None, file: str | None = None, status="RUNNING"):
     embed = discord.Embed(
-        title="BD v3→v2 Downgrader — Export",
+        title="BD v3 -> v2 Downgrader — Export",
         description=f"Status: **{status}**",
     )
     match status:
@@ -276,7 +271,7 @@ async def process(entry: str, migration: dict) -> str:
 async def migrate(message, filename: str) -> str | None:
     with bz2.open(f"{filename}.bz2", "wt", encoding="utf-8") as f:
         content = [
-            f"// Generated with 'BD v3→v2 Downgrader' v{__version__}\n"
+            f"// Generated with 'BD v3 -> v2 Downgrader' v{__version__}\n"
             "// Run import.py on your BallsDex v2 bot to import this data.\n\n"
         ]
         error_occurred = False
@@ -314,13 +309,13 @@ async def main():
 
     try:
         await ctx.send(  # type: ignore # noqa: F821
-            "📦 **Migration file — drag this into your BallsDex v2 bot folder:**",
+            "**Migration file — drag this into your BallsDex v2 bot folder:**",
             file=discord.File(path),
         )
     except discord.HTTPException:
         size = convert_size(os.path.getsize(path))
         await ctx.send(  # type: ignore # noqa: F821
-            f"⚠️ File too large to upload ({size}). Copy `{path}` manually to your v2 bot folder."
+            f"File too large to upload ({size}). Copy `{path}` manually to your v2 bot folder."
         )
 
 
