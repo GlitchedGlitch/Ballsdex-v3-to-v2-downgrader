@@ -213,55 +213,34 @@ async def process(entry: str, migration: dict) -> str:
     has_defaults = "defaults" in migration
     rename = migration.get("rename", {})
 
-    # Build ordered values list — id first, then all others in definition order
-    # Using a list (not set) to preserve order and prevent column misalignment
-    seen = {"id"}
-    values = ["id"]
-    for v in migration["values"]:
-        if v not in seen:
-            seen.add(v)
-            values.append(v)
+    values = set(migration["values"] + ["id"])
     if has_defaults:
-        for v in migration["defaults"].keys():
-            if v not in seen:
-                seen.add(v)
-                values.append(v)
+        values.update(migration["defaults"].keys())
+    values = sorted(values, key=lambda x: (x != "id", x))
 
+    # Use all_objects manager for BallInstance to include deleted ones
     if migration["model"] == BallInstance:
-        rows = [x async for x in BallInstance.all_objects.order_by("id").values_list(*values)]
+        qs = BallInstance.all_objects.all().order_by("id").values_list(*values)
     else:
-        rows = [x async for x in migration["model"].objects.order_by("id").values_list(*values)]
+        qs = migration["model"].all().order_by("id").values_list(*values)
 
-    first_row_logged = False
-    for row in rows:
-        if not first_row_logged and entry == "S":
-            output.append(f"[debug] Raw S row 1: {list(row)}")
-            first_row_logged = True
-        # Convert Django ImageFieldFile objects to their path string (or None if empty)
-        row = tuple(
-            (str(v) if str(v) else None) if hasattr(v, 'name') and hasattr(v, 'url') else v
-            for v in row
-        )
+    async for row in qs:
         model_dict = dict(zip(values, row))
         fields = []
 
         for key, value in model_dict.items():
-            if has_defaults and key in migration["defaults"]:
-                default = migration["defaults"][key]
-                # Treat empty string same as None for comparison
-                effective_value = None if value == "" else value
-                if effective_value == default:
-                    fields.append("")
-                    continue
+            if has_defaults and key in migration["defaults"] and value == migration["defaults"][key]:
+                fields.append("")
+                continue
 
-            value_string = str(value) if value is not None else "None"
+            value_string = str(value)
 
             if value_string == "True":
                 value_string = "🬀"
             elif value_string == "False":
                 value_string = "🬁"
 
-            fields.append(value_string.replace("\n", "🮈").replace("╵", "🮉"))
+            fields.append(value_string.replace("\n", "🮈"))
 
         if first_instance:
             content.append(f":{entry}")
@@ -271,7 +250,7 @@ async def process(entry: str, migration: dict) -> str:
 
         content.append("╵".join(fields))
 
-    count = await BallInstance.all_objects.acount() if migration["model"] == BallInstance else await migration["model"].objects.acount()
+    count = await migration["model"].all().count() if migration["model"] != BallInstance else await BallInstance.all_objects.all().count()
     output.append(f"- Exported **{count:,}** {migration['process']} objects.")
 
     return "\n".join(content)
@@ -308,7 +287,7 @@ async def main():
     message = await ctx.send(embed=reload_embed())  # type: ignore # noqa: F821
     start_time = time.time()
 
-    path = await migrate(message, "/tmp/migration.txt")
+    path = await migrate(message, "migration.txt")
 
     if path is None:
         await message.edit(embed=reload_embed(start_time, status="CANCELED"))
