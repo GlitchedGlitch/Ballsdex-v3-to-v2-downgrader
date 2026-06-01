@@ -157,6 +157,9 @@ async def load(message):
             col_names = line[len("#fields:"):].split("╵")
             if section in SECTIONS:
                 SECTIONS[section][1] = col_names
+                if section == "S":
+                    output.append(f"[debug] S fields: {col_names}")
+                    await message.edit(embed=reload_embed())
             continue
 
         if line.startswith("#"):
@@ -200,7 +203,10 @@ async def load(message):
                 if isinstance(field_type, IntField):
                     line_data = safe_int(line_data)
                 elif isinstance(field_type, FloatField):
-                    line_data = float(line_data)
+                    try:
+                        line_data = float(line_data)
+                    except (ValueError, TypeError):
+                        line_data = 0.0
                 elif isinstance(field_type, DatetimeField):
                     line_data = safe_datetime(line_data)
                 elif isinstance(field_type, DateField):
@@ -551,12 +557,12 @@ async def clear_all_data():
 
 async def main():
     if not os.path.isfile("/code/migration.txt.bz2"):
-        await ctx.send("`/code/migration.txt.bz2` not found. Run export.py on your v3 bot first.")  # type: ignore # noqa: F821
+        await ctx.send("❌ `/code/migration.txt.bz2` not found. Run export.py on your v3 bot first.")  # type: ignore # noqa: F821
         return
 
     try:
         await ctx.send(  # type: ignore # noqa: F821
-            "**⚠️ WARNING**: All existing data will be **CLEARED**.\n"
+            "**⚠️ WARNING**: All existing data on this v2 bot will be **CLEARED**.\n"
             "Type `proceed` to continue or `cancel` to abort."
         )
         confirm = await bot.wait_for(  # type: ignore # noqa: F821
