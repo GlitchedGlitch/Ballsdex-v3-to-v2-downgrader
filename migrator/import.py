@@ -347,7 +347,7 @@ async def load(message):
                         elif field_name in ('enabled', 'tradeable', 'hidden', 'favorite'):
                             model[field_name] = False if field_name in ('hidden', 'favorite') else True
                         elif field_name in ('health', 'attack', 'rarity', 'health_bonus', 'attack_bonus'):
-                            model[field_name] = 0
+                            model[field_name] = 0.0 if field_name == 'rarity' else 0
                         elif field_name == 'emoji_id':
                             model[field_name] = 1234567890123456789
                         elif field_name == 'regime_id':
