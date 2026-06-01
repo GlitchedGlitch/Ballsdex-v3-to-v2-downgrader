@@ -257,7 +257,7 @@ async def process(entry: str, migration: dict) -> str:
             elif value_string == "False":
                 value_string = "🬁"
 
-            fields.append(value_string.replace("\n", "🮈"))
+            fields.append(value_string.replace("\n", "🮈").replace("╵", "🮉"))
 
         if first_instance:
             content.append(f":{entry}")
