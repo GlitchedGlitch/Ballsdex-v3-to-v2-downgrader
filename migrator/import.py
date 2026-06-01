@@ -157,9 +157,6 @@ async def load(message):
             col_names = line[len("#fields:"):].split("╵")
             if section in SECTIONS:
                 SECTIONS[section][1] = col_names
-                if section == "S":
-                    output.append(f"[debug] S fields: {col_names}")
-                    await message.edit(embed=reload_embed())
             continue
 
         if line.startswith("#"):
@@ -213,7 +210,7 @@ async def load(message):
                     line_data = safe_date(line_data)
 
             if isinstance(line_data, str):
-                line_data = line_data.replace("🮈", "\n")
+                line_data = line_data.replace("🮈", "\n").replace("🮉", "╵")
 
             model_dict[value] = line_data
 
