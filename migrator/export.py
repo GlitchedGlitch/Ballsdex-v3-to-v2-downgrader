@@ -213,34 +213,51 @@ async def process(entry: str, migration: dict) -> str:
     has_defaults = "defaults" in migration
     rename = migration.get("rename", {})
 
-    values = set(migration["values"] + ["id"])
+    # Build ordered values list — id first, then all others in definition order
+    # Using a list (not set) to preserve order and prevent column misalignment
+    seen = {"id"}
+    values = ["id"]
+    for v in migration["values"]:
+        if v not in seen:
+            seen.add(v)
+            values.append(v)
     if has_defaults:
-        values.update(migration["defaults"].keys())
-    values = sorted(values, key=lambda x: (x != "id", x))
+        for v in migration["defaults"].keys():
+            if v not in seen:
+                seen.add(v)
+                values.append(v)
 
-    # Use all_objects manager for BallInstance to include deleted ones
     if migration["model"] == BallInstance:
-        qs = BallInstance.all_objects.all().order_by("id").values_list(*values)
+        rows = [x async for x in BallInstance.all_objects.order_by("id").values_list(*values)]
     else:
-        qs = migration["model"].all().order_by("id").values_list(*values)
+        rows = [x async for x in migration["model"].objects.order_by("id").values_list(*values)]
 
-    async for row in qs:
+    for row in rows:
+        # Convert Django ImageFieldFile objects to their path string (or None if empty)
+        row = tuple(
+            (str(v) if str(v) else None) if hasattr(v, 'name') and hasattr(v, 'url') else v
+            for v in row
+        )
         model_dict = dict(zip(values, row))
         fields = []
 
         for key, value in model_dict.items():
-            if has_defaults and key in migration["defaults"] and value == migration["defaults"][key]:
-                fields.append("")
-                continue
+            if has_defaults and key in migration["defaults"]:
+                default = migration["defaults"][key]
+                # Treat empty string same as None for comparison
+                effective_value = None if value == "" else value
+                if effective_value == default:
+                    fields.append("")
+                    continue
 
-            value_string = str(value)
+            value_string = str(value) if value is not None else "None"
 
             if value_string == "True":
                 value_string = "🬀"
             elif value_string == "False":
                 value_string = "🬁"
 
-            fields.append(value_string.replace("\n", "🮈"))
+            fields.append(value_string.replace("\r\n", "🮈").replace("\r", "🮈").replace("\n", "🮈").replace("╵", "🮉"))
 
         if first_instance:
             content.append(f":{entry}")
@@ -250,7 +267,7 @@ async def process(entry: str, migration: dict) -> str:
 
         content.append("╵".join(fields))
 
-    count = await migration["model"].all().count() if migration["model"] != BallInstance else await BallInstance.all_objects.all().count()
+    count = await BallInstance.all_objects.acount() if migration["model"] == BallInstance else await migration["model"].objects.acount()
     output.append(f"- Exported **{count:,}** {migration['process']} objects.")
 
     return "\n".join(content)
@@ -287,7 +304,7 @@ async def main():
     message = await ctx.send(embed=reload_embed())  # type: ignore # noqa: F821
     start_time = time.time()
 
-    path = await migrate(message, "migration.txt")
+    path = await migrate(message, "/tmp/migration.txt")
 
     if path is None:
         await message.edit(embed=reload_embed(start_time, status="CANCELED"))
