@@ -398,6 +398,13 @@ async def load(message):
             # Set safe defaults
             if model.get('short_name') is None:
                 model['short_name'] = None
+            if item == Special:
+                if model.get('rarity') is None:
+                    model['rarity'] = 0.0
+                if model.get('tradeable') is None:
+                    model['tradeable'] = True
+                if model.get('hidden') is None:
+                    model['hidden'] = False
             if item == Ball:
                 if model.get('country') is None:
                     model['country'] = 'Unknown'
