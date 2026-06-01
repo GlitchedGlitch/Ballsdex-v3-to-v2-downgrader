@@ -232,7 +232,11 @@ async def process(entry: str, migration: dict) -> str:
     else:
         rows = [x async for x in migration["model"].objects.order_by("id").values_list(*values)]
 
+    first_row_logged = False
     for row in rows:
+        if not first_row_logged and entry == "S":
+            output.append(f"[debug] Raw S row 1: {list(row)}")
+            first_row_logged = True
         # Convert Django ImageFieldFile objects to their path string (or None if empty)
         row = tuple(
             (str(v) if str(v) else None) if hasattr(v, 'name') and hasattr(v, 'url') else v
